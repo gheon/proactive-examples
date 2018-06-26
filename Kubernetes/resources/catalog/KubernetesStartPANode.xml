@@ -14,7 +14,7 @@
   <genericInformation>
     <info name="K8S_CREATE_ONLY" value="true"/>
     <info name="NODE_ACCESS_TOKEN" value="k8s"/>
-    <info name="workflow.icon" value="/automation-dashboard/styles/patterns/img/wf-icons/kafka.png"/>
+    <info name="workflow.icon" value="/automation-dashboard/styles/patterns/img/wf-icons/k8s.png"/>
   </genericInformation>
   <taskFlow>
     <task name="StartPANode">
