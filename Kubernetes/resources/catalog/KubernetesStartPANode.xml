@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="urn:proactive:jobdescriptor:3.10"
+     xsi:schemaLocation="urn:proactive:jobdescriptor:3.10 http://www.activeeon.com/public_content/schemas/proactive/jobdescriptor/3.10/schedulerjob.xsd"
+    name="StartProActiveNodeOnK8S" 
+    priority="normal"
+    onTaskError="continueJobExecution"
+     maxNumberOfExecution="2"
+>
+  <description>
+    <![CDATA[ This workflow will start a ProActive Node running on a Kubernetes cluster. ]]>
+  </description>
+  <genericInformation>
+    <info name="K8S_CREATE_ONLY" value="true"/>
+    <info name="NODE_ACCESS_TOKEN" value="k8s"/>
+    <info name="workflow.icon" value="/automation-dashboard/styles/patterns/img/wf-icons/kafka.png"/>
+  </genericInformation>
+  <taskFlow>
+    <task name="StartPANode">
+      <depends>
+        <task ref="CreatePANodeAutostart"/>
+        <task ref="CreatePANodePrestop"/>
+        <task ref="CreatePANodePoststart"/>
+      </depends>
+      <scriptExecutable>
+        <script>
+          <code language="kubernetes">
+            <![CDATA[
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pca-k8s-pa-node-deployment
+  namespace: azure-try
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        task: azure-try
+        run: proactive-node
+    spec:
+      containers:
+      - name: pca-k8s-pa-node
+        image: proactivecontainerregistry.azurecr.io/proactive-node-linux64:v8.1.0
+        resources:
+          limits:
+            cpu: 500m
+            memory: 2G
+          requests:
+            cpu: 500m
+            memory: 2G
+        env:
+        - name: JAVA_OPTS
+          value: "-Xmx2G -Xms2G"
+        - name: WORKERS
+          value: "2"
+        volumeMounts: 
+        - name: azure-node-vol # The remote volume used to setup and run the PA node.
+          mountPath: /mnt
+        - name: pca-k8s-pa-node-autostart
+          mountPath: /tmp/autostart.sh
+          subPath: autostart.sh
+        - name: pca-k8s-pa-node-prestop
+          mountPath: /tmp/preStop.sh
+          subPath: preStop.sh
+        - name: pca-k8s-pa-node-poststart
+          mountPath: /tmp/postStart.sh
+          subPath: postStart.sh
+        ports:
+        - containerPort: 64738 # PNP
+        - containerPort: 64739 # PNPS
+        - containerPort: 33647 # PAMR
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/bash", "-c", "cp /tmp/postStart.sh ~/ && chmod +x ~/postStart.sh && ~/postStart.sh"]
+          preStop:
+            exec:
+              command: ["/bin/bash", "-c", "cp /tmp/preStop.sh ~/ && chmod +x ~/preStop.sh && ~/preStop.sh"]
+        livenessProbe:
+          exec:
+            command: ["/bin/bash", "-c", "cat < /dev/null > /dev/tcp/proactive-scheduler-service/64738 && [ \"$(cat /opt/proactive/logs/*.log|grep -o Adding |wc -l)\" -eq \"$WORKERS\" ]"]
+          timeoutSeconds: 1
+          failureThreshold: 1
+          initialDelaySeconds: 120
+          periodSeconds: 5
+        # On the container startup, we directly execute the setup/configuration script
+        # which can be retrieved from the ConfigMap above.
+        command: ["/bin/bash", "-c"]
+        args: ["cp /tmp/autostart.sh /opt &&
+                chmod +x /opt/autostart.sh &&
+                /opt/autostart.sh $WORKERS"
+              ]
+      volumes:
+      - name: azure-node-vol
+        azureFile:
+          secretName: k8s-secret
+          shareName: azure-try-pa-node
+          readOnly: true
+      - name: pca-k8s-pa-node-autostart
+        configMap:
+          name: pca-k8s-pa-node-autostart
+      - name: pca-k8s-pa-node-prestop
+        configMap:
+          name: pca-k8s-pa-node-prestop
+      - name: pca-k8s-pa-node-poststart
+        configMap:
+          name: pca-k8s-pa-node-poststart
+]]>
+          </code>
+        </script>
+      </scriptExecutable>
+    </task>
+    <task name="CreatePANodeAutostart">
+      <scriptExecutable>
+        <script>
+          <code language="kubernetes">
+            <![CDATA[
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pca-k8s-pa-node-autostart
+  namespace: azure-try
+data:
+  # autostart.sh is an init script to unzip a ProActive node and start it  
+  autostart.sh: |
+    #!/bin/bash
+    WORKERS=${1-2}
+    NODE_RELEASE_NAME=$(basename $(ls /mnt/*.zip | sed -e "s/.zip//g"))
+
+    cp /mnt/kube.tar.gz /tmp/ 
+    tar xzf /tmp/kube.tar.gz && mv /tmp/kube/ ~/.kube 
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.6.6/bin/linux/amd64/kubectl
+    chmod +x kubectl && mv kubectl /usr/local/bin/ 
+
+    # copy custom config files and addons from the Azure fileshare
+    cp -r /mnt/node/* /opt/proactive/
+    # start the node
+    /opt/proactive/bin/proactive-node -Dproactive.useIPaddress=true --rmURL=pnp://proactive-scheduler-service:64738 --workers=$WORKERS -s AzureK8Scluster
+]]>
+          </code>
+        </script>
+      </scriptExecutable>
+    </task>
+    <task name="CreatePANodePrestop">
+      <description>
+        <![CDATA[ Simple task running with Kubernees. ]]>
+      </description>
+      <scriptExecutable>
+        <script>
+          <code language="kubernetes">
+            <![CDATA[
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pca-k8s-pa-node-prestop
+  namespace: azure-try
+data:
+  # the prestop script leverages the PA REST API to clean itself (no red node)
+  preStop.sh: |
+      #!/bin/bash
+      RM_USER="nodebot"
+      RM_PASSWORD="proactive"
+      RM_URL="https://azure-try.activeeon.com/rest/rm"
+      SESSION_ID=$(curl -s -X POST -F username=$RM_USER -F password=$RM_PASSWORD $RM_URL/login/)
+      echo $SESSION_ID
+      for node_url in $(cat /opt/proactive/logs/Node-*.log |grep "Node pnp://"|egrep -o "pnp://.*\ "|awk  '{print $1;}'|sort|uniq);
+      do
+          curl -i --header "sessionid: $SESSION_ID" -H "Accept: application/json" -H "Content-Type: application/x-www-form-urlencoded" -X POST -d "url=$node_url" $RM_URL/node/remove/ 
+      done
+]]>
+          </code>
+        </script>
+      </scriptExecutable>
+    </task>
+    <task name="CreatePANodePoststart">
+      <scriptExecutable>
+        <script>
+          <code language="kubernetes">
+            <![CDATA[
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pca-k8s-pa-node-poststart
+  namespace: azure-try
+data:
+  postStart.sh: |
+      #!/bin/bash
+      sleep 300 # wait for the node to be fully started
+      cd /tmp
+      git clone https://github.com/gheon/proactive-node-additional-jar.git
+      mv proactive-node-additional-jar/jri*.jar proactive-node-additional-jar/pa-*.jar proactive-node-additional-jar/rengine-*.jar /tmp/node/lib/
+      mv proactive-node-additional-jar/scheduler-examples*.jar /tmp/node/lib/
+      touch /tmp/script-engines-setup
+]]>
+          </code>
+        </script>
+      </scriptExecutable>
+    </task>
+  </taskFlow>
+</job>

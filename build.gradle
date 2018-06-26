@@ -91,6 +91,7 @@ task zip (type: Zip){
     include 'Visdom/**'
     include 'WebNotification/**'
     include 'Zookeeper/**'
+    include 'Kubernetes/**'
     include 'ordered_bucket_list'
 }
 

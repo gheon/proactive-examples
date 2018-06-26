@@ -1,0 +1,34 @@
+{
+	"metadata": {
+		"slug": "cloudautomation-kubernetes",
+		"name": "CloudAutomation Kubernetes",
+		"short_description": "Example workflows for Kubernetes",
+		"author": "ActiveEon's Team",
+		"tags": ["Cloud Automation", "Kubernetes", "Cloud", "Orchestrator"],
+		"version": "1.0"
+	},
+	"dependencies": ["CloudAutomationClient"],
+	"catalog" : {
+		"bucket" : "cloud-automation",
+		"objects" : [
+			{
+				"name" : "KubernetesStartPANode",
+				"metadata" : {
+					"kind": "Workflow/pca",
+					"commitMessage": "First commit",
+					"contentType": "application/xml"
+				},
+				"file" : "resources/catalog/KubernetesStartPANode.xml"
+			},
+			{
+				"name" : "KubernetesStopPANode",
+				"metadata" : {
+					"kind": "Workflow/pca",
+					"commitMessage": "First commit",
+					"contentType": "application/xml"
+				},
+				"file" : "resources/catalog/KubernetesStopPANode.xml"
+			}
+		]
+	}
+}
