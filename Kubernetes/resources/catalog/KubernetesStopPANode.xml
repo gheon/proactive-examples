@@ -19,9 +19,9 @@
   <taskFlow>
     <task name="StartPANode">
       <depends>
-        <task ref="CreatePANodeAutostart"/>
-        <task ref="CreatePANodePrestop"/>
-        <task ref="CreatePANodePoststart"/>
+        <task ref="DeletePANodeAutostart"/>
+        <task ref="DeletePANodePrestop"/>
+        <task ref="DeletePANodePoststart"/>
       </depends>
       <scriptExecutable>
         <script>
@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: pca-k8s-pa-node
-        image: proactivecontainerregistry.azurecr.io/proactive-node-linux64:v8.1.0
+        image: proactivecontainerregistry.azurecr.io/proactive-node-linux64:v8.2.0
         resources:
           limits:
             cpu: 500m
@@ -112,7 +112,7 @@ spec:
         </script>
       </scriptExecutable>
     </task>
-    <task name="CreatePANodeAutostart">
+    <task name="DeletePANodeAutostart">
       <scriptExecutable>
         <script>
           <code language="kubernetes">
@@ -143,7 +143,7 @@ data:
         </script>
       </scriptExecutable>
     </task>
-    <task name="CreatePANodePrestop">
+    <task name="DeletePANodePrestop">
       <description>
         <![CDATA[ Simple task running with Kubernees. ]]>
       </description>
@@ -174,7 +174,7 @@ data:
         </script>
       </scriptExecutable>
     </task>
-    <task name="CreatePANodePoststart">
+    <task name="DeletePANodePoststart">
       <scriptExecutable>
         <script>
           <code language="kubernetes">
