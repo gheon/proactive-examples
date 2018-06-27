@@ -12,22 +12,22 @@
 		"bucket" : "cloud-automation",
 		"objects" : [
 			{
-				"name" : "KubernetesStartPANode",
+				"name" : "Start_PA_Node_on_K8s",
 				"metadata" : {
 					"kind": "Workflow/pca",
 					"commitMessage": "First commit",
 					"contentType": "application/xml"
 				},
-				"file" : "resources/catalog/KubernetesStartPANode.xml"
+				"file" : "resources/catalog/Start_PA_Node_on_K8s.xml"
 			},
 			{
-				"name" : "KubernetesStopPANode",
+				"name" : "Stop_PA_Node_on_K8s",
 				"metadata" : {
 					"kind": "Workflow/pca",
 					"commitMessage": "First commit",
 					"contentType": "application/xml"
 				},
-				"file" : "resources/catalog/KubernetesStopPANode.xml"
+				"file" : "resources/catalog/Stop_PA_Node_on_K8s.xml"
 			}
 		]
 	}
