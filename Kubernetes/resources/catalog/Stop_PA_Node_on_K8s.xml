@@ -17,7 +17,7 @@
     <info name="workflow.icon" value="/automation-dashboard/styles/patterns/img/wf-icons/k8s.png"/>
   </genericInformation>
   <taskFlow>
-    <task name="StartPANode">
+    <task name="StopPANode">
       <depends>
         <task ref="DeletePANodeAutostart"/>
         <task ref="DeletePANodePrestop"/>
